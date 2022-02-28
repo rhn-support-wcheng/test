@@ -1,8 +1,6 @@
-# Use the redhattraining/httpd-parent image as base
-FROM quay.io/wcheng/httpd-parent
+FROM registry.access.redhat.com/ubi8/ubi:latest
 
-# Change the port to 8080
-EXPOSE 8080
+MAINTAINER Cheng Wing Kai <wcheng@redhat.com>
 
 # Labels consumed by OpenShift
 LABEL io.k8s.description="A basic Apache HTTP Server child image, uses ONBUILD" \
@@ -10,17 +8,20 @@ LABEL io.k8s.description="A basic Apache HTTP Server child image, uses ONBUILD" 
       io.openshift.expose-services="8080:http" \
       io.openshift.tags="apache, httpd"
 
-# Change web server port to 8080
-RUN sed -i "s/Listen 80/Listen 8080/g" /etc/httpd/conf/httpd.conf
+# DocumentRoot for Apache
+ENV DOCROOT=/var/www/html 
 
-# Permissions to allow container to run on OpenShift
-RUN chgrp -R 0 /var/log/httpd /var/run/httpd && \
-    chmod -R g=u /var/log/httpd /var/run/httpd
+# Change the port to 8080
+EXPOSE 8080
 
-RUN  yum install -y python2 && ln -s /usr/bin/python2 /usr/bin/python
+RUN   curl https://people.redhat.com/wcheng/mail.py > /tmp/mail.py && \
+      yum install -y --nodocs --disableplugin=subscription-manager httpd && \
+      yum install -y --nodocs --disableplugin=subscription-manager python2 && \
+      yum clean all --disableplugin=subscription-manager -y && \
+      ln -s /usr/bin/python2 /usr/bin/python && \
+      chmod 777 /tmp/mail.py && \
+      sed -i "s/Listen 80/Listen 8080/g" /etc/httpd/conf/httpd.conf && \
+      echo "Hello from the Kai container!" > ${DOCROOT}/index.html
 
-ADD https://people.redhat.com/wcheng/mail.py /tmp
-RUN chmod 777 /tmp/mail.py
-
-# Run as a non-privileged user
-USER 1001
+# Launch httpd
+CMD /usr/sbin/httpd -DFOREGROUND
